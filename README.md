@@ -9,7 +9,14 @@
 
 > [!WARNING]
 > ## ПРЕДНАСТРОЙКА
->
+>Что добавить от себя (напиши на полях шпаргалки)
+Перед началом: systemctl stop NetworkManager && systemctl disable NetworkManager
+
+На всех машинах: echo "nameserver 8.8.8.8" > /etc/resolv.conf
+
+Перед iptables: убедись, что включён форвардинг (sysctl net.ipv4.ip_forward=1)
+
+Если что-то не работает: перезагрузи виртуалку (часто помогает)
 > ```
 > systemctl stop NetworkManager
 > systemctl disable NetworkManager
