@@ -9,13 +9,7 @@
 
 > [!WARNING]
 > ## ПРЕДНАСТРОЙКА
->Что добавить от себя (напиши на полях шпаргалки)
-Перед началом: systemctl stop NetworkManager && systemctl disable NetworkManager
-
-На всех машинах: echo "nameserver 8.8.8.8" > /etc/resolv.conf
-
-Перед iptables: убедись, что включён форвардинг (sysctl net.ipv4.ip_forward=1)
-
+>
 Если что-то не работает: перезагрузи виртуалку (часто помогает)
 > ```
 > systemctl stop NetworkManager
@@ -631,10 +625,38 @@ chmod 700 /home/net_admin
 ## Настройка VLAN на **`HQ-RTR`**
 
 - Для начала установи пакет _**`vlan`**_:
-
+# Проверка интернета и DNS перед установкой VLAN
+echo "=== Проверка интернета ==="
+ping -c 2 8.8.8.8
+if [ $? -eq 0 ]; then
+    echo "Интернет есть. Устанавливаем vlan..."
+    apt update
+    apt install vlan -y
+else
+    echo "Нет интернета! Выполни преднастройку DNS (см. раздел ПРЕДНАСТРОЙКА)"
+    exit 1
+fi
 ```
 apt install vlan
 ```
+Если не качается то 
+# Останавливаем и отключаем systemd-resolved (он сбрасывает DNS)
+systemctl stop systemd-resolved
+systemctl disable systemd-resolved
+
+# Удаляем старый файл resolv.conf
+rm -f /etc/resolv.conf
+
+# Создаём новый, правильный файл DNS
+echo "nameserver 1.1.1.1" > /etc/resolv.conf
+echo "nameserver 8.8.8.8" >> /etc/resolv.conf
+
+# Защищаем файл от изменений (чтобы DHCP не перезаписал)
+chattr +i /etc/resolv.conf
+
+# Проверяем результат
+cat /etc/resolv.conf
+ping 8.8.8.8.
 
 - После чего добавляем модуль _**`modprobe 8021q`**_ командой:
 ```
@@ -644,7 +666,7 @@ echo 8021q >> /etc/modules
 ```
 nano /etc/network/interfaces
 ```
-
+Это вставлять в низ того что уже есть.
 ```
 # The primary network interface
 auto ens192  
@@ -943,9 +965,16 @@ int gre1
 ### ПРОВЕРКА
 
 Пингуем: **`BR-SRV - > HQ-SRV`** и **`BR-SRV - > HQ-CLI`**
+Пинговать с BR-SRV на HQ-SRV:
 
+bash
+ping 192.168.100.62
+Пинговать с BR-SRV на HQ-CLI:
+
+bash
+ping 192.168.200.3
 Проверка в **FRR**:
-
+на HQ-RTR-BR-RTR
 ```
 vtysh
   show ip ospf neighbor
