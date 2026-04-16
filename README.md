@@ -639,25 +639,30 @@ fi
 ```
 apt install vlan
 ```
-Если не качается то 
-# Останавливаем и отключаем systemd-resolved (он сбрасывает DNS)
+- Если не качается то 
+Останавливаем и отключаем systemd-resolved (он сбрасывает DNS)
+```
 systemctl stop systemd-resolved
 systemctl disable systemd-resolved
-
-# Удаляем старый файл resolv.conf
+```
+Удаляем старый файл resolv.conf
+```
 rm -f /etc/resolv.conf
-
-# Создаём новый, правильный файл DNS
+```
+Создаём новый, правильный файл DNS
+```
 echo "nameserver 1.1.1.1" > /etc/resolv.conf
 echo "nameserver 8.8.8.8" >> /etc/resolv.conf
-
-# Защищаем файл от изменений (чтобы DHCP не перезаписал)
+```
+Защищаем файл от изменений (чтобы DHCP не перезаписал)
+```
 chattr +i /etc/resolv.conf
-
-# Проверяем результат
+```
+Проверяем результат
+```
 cat /etc/resolv.conf
 ping 8.8.8.8.
-
+```
 - После чего добавляем модуль _**`modprobe 8021q`**_ командой:
 ```
 echo 8021q >> /etc/modules
