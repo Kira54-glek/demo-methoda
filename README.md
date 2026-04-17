@@ -425,12 +425,14 @@ echo net.ipv4.ip_forward=1 >> /etc/sysctl.conf
 sysctl -p /etc/sysctl.conf
 ```
 - Проверяем
+
 ```
 sysctl net.ipv4.ip_forward
 ```
 apt-get install iptables iptables-persistent –y
 ```
 - Узнаём имя интерфейса в интернет
+
 ```
 ip a
 ```
@@ -439,11 +441,13 @@ iptables –t nat –A POSTROUTING –s 172.16.2.0/28 –o ens192 –j MASQUERAD
 netfilter-persistent save
 systemctl restart netfilter-persistent  
 ```
-- проверка правил 
+- проверка правил
+
 ```
 iptables -t nat -L -n -v
 ```
 - Пример вывода
+  
 ```
 Chain POSTROUTING (policy ACCEPT 0 packets, 0 bytes)
  pkts bytes target     prot opt in     out     source               destination
