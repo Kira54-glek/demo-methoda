@@ -421,17 +421,41 @@ gateway 192.168.100.1
 ### Настройка динамической сетевой трансляции на _`ISP`_
 
 ```
-echo net.ipv4.ip_forward=1 > /etc/sysctl.conf
+echo net.ipv4.ip_forward=1 >> /etc/sysctl.conf
+sysctl -p /etc/sysctl.conf
 ```
+- Проверяем
+```
+sysctl net.ipv4.ip_forward
 ```
 apt-get install iptables iptables-persistent –y
 ```
+- Узнаём имя интерфейса в интернет
+```
+ip a
 ```
 iptables –t nat –A POSTROUTING –s 172.16.1.0/28 –o ens192 –j MASQUERADE  
 iptables –t nat –A POSTROUTING –s 172.16.2.0/28 –o ens192 –j MASQUERADE
 netfilter-persistent save
 systemctl restart netfilter-persistent  
 ```
+- проверка правил 
+```
+iptables -t nat -L -n -v
+```
+- Пример вывода
+```
+Chain POSTROUTING (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+   10   840 MASQUERADE  all  --  *      ens192  172.16.1.0/28        0.0.0.0/0
+    5   420 MASQUERADE  all  --  *      ens192  172.16.2.0/28        0.0.0.0/0
+```
+- Проверить, что интернет идёт с HQ-RTR и BR-RTR
+- Зайди и выполни:
+```
+ping 8.8.8.8
+```
+- Должен быть успешный пинг. Если пинг идёт — NAT на ISP работает.
 </br>
 
 <details>
@@ -626,42 +650,42 @@ chmod 700 /home/net_admin
 
 - Для начала установи пакет _**`vlan`**_:
 - Проверка интернета и DNS перед установкой VLAN (можно просто ребут, если не помогло то тогда настройка)
-echo "=== Проверка интернета ==="
-ping -c 2 8.8.8.8
-if [ $? -eq 0 ]; then
-    echo "Интернет есть. Устанавливаем vlan..."
-    apt update
-    apt install vlan -y
-else
-    echo "Нет интернета! Выполни преднастройку DNS (см. раздел ПРЕДНАСТРОЙКА)"
-    exit 1
-fi
 ```
-apt install vlan
+apt update
+ping -c 2 8.8.8.8
+```
+- "Интернет есть. Устанавливаем vlan..."
+    echo "Нет интернета! Выполни преднастройку DNS (см. раздел ПРЕДНАСТРОЙКА)"
+```
+apt install vlan (-y)
 ```
 - Если не качается то 
-Останавливаем и отключаем systemd-resolved (он сбрасывает DNS)
+- Останавливаем и отключаем systemd-resolved (он сбрасывает DNS)
 ```
 systemctl stop systemd-resolved
 systemctl disable systemd-resolved
 ```
-Удаляем старый файл resolv.conf
+- Удаляем старый файл resolv.conf
 ```
 rm -f /etc/resolv.conf
 ```
-Создаём новый, правильный файл DNS
+- Создаём новый, правильный файл DNS
 ```
 echo "nameserver 1.1.1.1" > /etc/resolv.conf
 echo "nameserver 8.8.8.8" >> /etc/resolv.conf
 ```
-Защищаем файл от изменений (чтобы DHCP не перезаписал)
+- Защищаем файл от изменений (чтобы DHCP не перезаписал)
 ```
 chattr +i /etc/resolv.conf
 ```
-Проверяем результат
+- Проверяем результат
 ```
 cat /etc/resolv.conf
 ping 8.8.8.8.
+```
+- если пошло скачиваем vlan
+```
+apt install vlan (-y)
 ```
 - После чего добавляем модуль _**`modprobe 8021q`**_ командой:
 ```
@@ -674,20 +698,6 @@ nano /etc/network/interfaces
 Это вставлять в низ того что уже есть.
 ```
 # The primary network interface
-auto ens192  
-iface ens192 inet static  
-address 172.16.1.2/28
-gateway 172.16.1.1
-
-auto gre1
-iface gre1 inet tunnel
-address 172.16.0.1
-netmask 255.255.255.240
-mode gre
-local 172.16.1.2
-endpoint 172.16.2.2
-ttl 64
-  
 auto ens224  
 iface ens224 inet static  
 address 192.168.100.1/27 
@@ -910,26 +920,27 @@ vtysh
 ```
 
 **5.** Пишем команды для настройки **маршрутизации:**
- 
+- Вводи команды ПО ПОРЯДКУ (после каждой нажимай Enter)
 ```
+bash
 conf t
 router ospf
-  passive-interface default
-  router-id 1.1.1.1
-  network 172.16.0.0/28 area 0
-  network 192.168.100.0/27 area 1
-  network 192.168.200.0/28 area 2
-  area 0 authentication
+passive-interface default
+router-id 1.1.1.1
+network 172.16.0.0/28 area 0
+network 192.168.100.0/27 area 1
+network 192.168.200.0/28 area 2
+area 0 authentication
 exit
 
 int gre1
-  no ip ospf network broadcast
-  no ip ospf passive
-  ip ospf authentication
-  ip ospf authentication-key password
-(config-if)exit
-(config)exit
-#write
+no ip ospf network broadcast
+no ip ospf passive
+ip ospf authentication
+ip ospf authentication-key password
+exit
+exit
+write
 ```
 <br>
 
@@ -1097,7 +1108,18 @@ systemctl restart netfilter-persistent
 ```
 > Для того, чтобы **сбросить** настройку *nat*, можно использовать команду **`iptables -t nat -F`**
 
-
+- Проверка NAT на HQ-RTR и BR-RTR (задание 8)
+- 1. Посмотреть правила NAT на HQ-RTR
+```
+iptables -t nat -L -n -v
+```
+- Что должно быть: Строки с MASQUERADE для подсетей 192.168.100.0/27 и 192.168.200.0/28.
+- 2. Проверить, что HQ-CLI выходит в интернет
+- Зайди на HQ-CLI (клиент) и выполни:
+```
+ping 8.8.8.8
+```
+- Должен быть успешный пинг.
 
 </br>
 
